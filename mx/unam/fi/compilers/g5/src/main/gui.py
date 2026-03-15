@@ -4,6 +4,16 @@ from pathlib import Path
 from lexer import Lexer
 
 
+BG_COLOR = "#121212"
+CARD_COLOR = "#1e1e1e"
+TEXT_BG = "#0f0f0f"
+TEXT_FG = "#f5f5f5"
+ACCENT = "#2d7ff9"
+ACCENT_HOVER = "#1f6ae6"
+SECONDARY = "#2b2b2b"
+BORDER = "#333333"
+
+
 def format_results(tokens, total_tokens):
     if tokens["Unknown"]:
         result = "Error: There are unrecognized tokens in the input.\n"
@@ -11,21 +21,45 @@ def format_results(tokens, total_tokens):
         return result
 
     output = []
-    for category, values in tokens.items():
-        if category != "Unknown":
-            output.append(f"{category}: {sorted(values)}")
+    ordered_categories = [
+        "Keywords",
+        "Identifiers",
+        "Constants",
+        "Operators",
+        "Punctuation",
+        "Literals",
+    ]
+
+    for category in ordered_categories:
+        if category in tokens:
+            output.append(f"{category}: {sorted(tokens[category])}")
+
     output.append(f"Total Tokens: {total_tokens}")
-    return "\n".join(output)
+    return "\n\n".join(output)
 
 
 def run_gui():
     root = tk.Tk()
-    root.title("C Lexer")
-    root.geometry("900x650")
+    root.title("Lexer")
+    root.geometry("980x700")
+    root.minsize(900, 650)
+    root.configure(bg=BG_COLOR)
 
     resource_dir = Path(__file__).parent / "resources"
 
-    # ---------- Functions ----------
+    # ---------- styles ----------
+    title_font = ("Arial", 20, "bold")
+    label_font = ("Arial", 11, "bold")
+    text_font = ("Courier New", 11)
+    button_font = ("Arial", 10, "bold")
+
+    def on_enter(event, button, hover_color):
+        button.config(bg=hover_color)
+
+    def on_leave(event, button, normal_color):
+        button.config(bg=normal_color)
+
+    # ---------- functions ----------
     def analyze_text():
         text = input_text.get("1.0", tk.END).strip()
 
@@ -44,7 +78,7 @@ def run_gui():
 
     def open_file():
         file_path = filedialog.askopenfilename(
-            title="Open C file",
+            title="Open file",
             filetypes=[("C files", "*.c *.h *.txt"), ("All files", "*.*")]
         )
 
@@ -76,32 +110,163 @@ def run_gui():
         output_text.delete("1.0", tk.END)
         output_text.config(state=tk.DISABLED)
 
-    # ---------- UI ----------
-    title_label = tk.Label(root, text="Lexical Analyzer for C", font=("Arial", 16, "bold"))
-    title_label.pack(pady=10)
+    # ---------- main wrapper ----------
+    wrapper = tk.Frame(root, bg=BG_COLOR)
+    wrapper.pack(fill="both", expand=True, padx=18, pady=18)
 
-    input_label = tk.Label(root, text="Input Code:", font=("Arial", 12, "bold"))
-    input_label.pack(anchor="w", padx=10)
+    # ---------- title ----------
+    title_label = tk.Label(
+        wrapper,
+        text="Lexer",
+        font=title_font,
+        bg=BG_COLOR,
+        fg=TEXT_FG
+    )
+    title_label.pack(pady=(0, 14))
 
-    input_text = tk.Text(root, height=15, width=100, font=("Courier New", 11))
-    input_text.pack(padx=10, pady=5, fill="both")
+    # ---------- input card ----------
+    input_card = tk.Frame(
+        wrapper,
+        bg=CARD_COLOR,
+        highlightbackground=BORDER,
+        highlightthickness=1
+    )
+    input_card.pack(fill="both", expand=True, pady=(0, 12))
 
-    button_frame = tk.Frame(root)
-    button_frame.pack(pady=10)
+    input_label = tk.Label(
+        input_card,
+        text="Input code",
+        font=label_font,
+        bg=CARD_COLOR,
+        fg=TEXT_FG
+    )
+    input_label.pack(anchor="w", padx=14, pady=(12, 8))
 
-    analyze_button = tk.Button(button_frame, text="Analyze String", command=analyze_text, width=15)
-    analyze_button.grid(row=0, column=0, padx=5)
+    input_text_frame = tk.Frame(input_card, bg=CARD_COLOR)
+    input_text_frame.pack(fill="both", expand=True, padx=14, pady=(0, 14))
 
-    open_button = tk.Button(button_frame, text="Open File", command=open_file, width=15)
-    open_button.grid(row=0, column=1, padx=5)
+    input_scroll = tk.Scrollbar(input_text_frame)
+    input_scroll.pack(side="right", fill="y")
 
-    clear_button = tk.Button(button_frame, text="Clear", command=clear_all, width=15)
-    clear_button.grid(row=0, column=2, padx=5)
+    input_text = tk.Text(
+        input_text_frame,
+        height=14,
+        font=text_font,
+        bg=TEXT_BG,
+        fg=TEXT_FG,
+        insertbackground=TEXT_FG,
+        selectbackground=ACCENT,
+        relief="flat",
+        bd=0,
+        wrap="none",
+        yscrollcommand=input_scroll.set
+    )
+    input_text.pack(fill="both", expand=True)
+    input_scroll.config(command=input_text.yview)
 
-    output_label = tk.Label(root, text="Output:", font=("Arial", 12, "bold"))
-    output_label.pack(anchor="w", padx=10)
+    # ---------- buttons ----------
+    button_frame = tk.Frame(wrapper, bg=BG_COLOR)
+    button_frame.pack(fill="x", pady=(0, 12))
 
-    output_text = tk.Text(root, height=15, width=100, font=("Courier New", 11), state=tk.DISABLED)
-    output_text.pack(padx=10, pady=5, fill="both", expand=True)
+    analyze_button = tk.Button(
+        button_frame,
+        text="Analyze String",
+        command=analyze_text,
+        font=button_font,
+        bg=ACCENT,
+        fg="white",
+        activebackground=ACCENT_HOVER,
+        activeforeground="white",
+        relief="flat",
+        bd=0,
+        padx=16,
+        pady=10,
+        cursor="hand2"
+    )
+    analyze_button.pack(side="left", padx=(0, 10))
+
+    open_button = tk.Button(
+        button_frame,
+        text="Open File",
+        command=open_file,
+        font=button_font,
+        bg=SECONDARY,
+        fg=TEXT_FG,
+        activebackground="#3a3a3a",
+        activeforeground=TEXT_FG,
+        relief="flat",
+        bd=0,
+        padx=16,
+        pady=10,
+        cursor="hand2"
+    )
+    open_button.pack(side="left", padx=(0, 10))
+
+    clear_button = tk.Button(
+        button_frame,
+        text="Clear",
+        command=clear_all,
+        font=button_font,
+        bg=SECONDARY,
+        fg=TEXT_FG,
+        activebackground="#3a3a3a",
+        activeforeground=TEXT_FG,
+        relief="flat",
+        bd=0,
+        padx=16,
+        pady=10,
+        cursor="hand2"
+    )
+    clear_button.pack(side="left")
+
+    analyze_button.bind("<Enter>", lambda e: on_enter(e, analyze_button, ACCENT_HOVER))
+    analyze_button.bind("<Leave>", lambda e: on_leave(e, analyze_button, ACCENT))
+
+    open_button.bind("<Enter>", lambda e: on_enter(e, open_button, "#3a3a3a"))
+    open_button.bind("<Leave>", lambda e: on_leave(e, open_button, SECONDARY))
+
+    clear_button.bind("<Enter>", lambda e: on_enter(e, clear_button, "#3a3a3a"))
+    clear_button.bind("<Leave>", lambda e: on_leave(e, clear_button, SECONDARY))
+
+    # ---------- output card ----------
+    output_card = tk.Frame(
+        wrapper,
+        bg=CARD_COLOR,
+        highlightbackground=BORDER,
+        highlightthickness=1
+    )
+    output_card.pack(fill="both", expand=True)
+
+    output_label = tk.Label(
+        output_card,
+        text="Output",
+        font=label_font,
+        bg=CARD_COLOR,
+        fg=TEXT_FG
+    )
+    output_label.pack(anchor="w", padx=14, pady=(12, 8))
+
+    output_text_frame = tk.Frame(output_card, bg=CARD_COLOR)
+    output_text_frame.pack(fill="both", expand=True, padx=14, pady=(0, 14))
+
+    output_scroll = tk.Scrollbar(output_text_frame)
+    output_scroll.pack(side="right", fill="y")
+
+    output_text = tk.Text(
+        output_text_frame,
+        height=14,
+        font=text_font,
+        bg=TEXT_BG,
+        fg=TEXT_FG,
+        insertbackground=TEXT_FG,
+        selectbackground=ACCENT,
+        relief="flat",
+        bd=0,
+        wrap="word",
+        state=tk.DISABLED,
+        yscrollcommand=output_scroll.set
+    )
+    output_text.pack(fill="both", expand=True)
+    output_scroll.config(command=output_text.yview)
 
     root.mainloop()

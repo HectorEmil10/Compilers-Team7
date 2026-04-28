@@ -80,6 +80,7 @@ class Lexer:
 
         # Total number of recognized tokens
         self.total_tokens = 0
+        self.tokens_list = []
 
         # Initialize the token categories used in the project
         self.token_classification["Keywords"] = set()
@@ -151,175 +152,131 @@ class Lexer:
         for category in self.token_classification:
             self.token_classification[category].clear()
         self.total_tokens = 0
+        self.tokens_list.clear()
 
     def tokenize(self):
         """
         Perform lexical analysis over the stored lexemes.
-
-        Processing steps:
-        1. Reset previous results.
-        2. Define the regular expressions for token categories.
-        3. Join all lexemes into a single text block.
-        4. Remove block and line comments.
-        5. Split the cleaned text into lines again.
-        6. Scan each line using the token regex pattern.
-        7. Classify every recognized token.
-        8. Detect unknown fragments not matched by any valid pattern.
-
-        Returns
-        -------
-        dict
-            A dictionary mapping token categories to sets of recognized tokens.
         """
         # Reset any previous analysis results
         self.reset()
 
-        # Build regex dynamically for keywords
         keyword_regex = self.create_keyword_regex()
-
-        # Regex for identifiers:
-        # starts with a letter or underscore, followed by letters, digits, or underscores
         id_regex = r"[a-zA-Z_][a-zA-Z0-9_]*"
-
-        # Regex for operators used in the project
         op_regex = (
             r">>=|<<=|\+=|-=|\*=|/=|%=|==|!=|>=|<=|&&|\|\||\+\+|--|<<|>>|"
             r"&=|\|=|\^=|=|>|<|!|~|\+|-|\*|/|%|&|\||\^|\?|:"
         )
-
-        # Regex for punctuation symbols
         punt_regex = r"\.\.\.|[()\[\]{};,.:]"
-
-        # Regex for constants.
-        # Floating-point patterns are placed before integer patterns
-        # to avoid splitting values like 10.5 into 10 and .5.
         const_regex = (
-            r"(0[xX][0-9a-fA-F]+)"                              # hexadecimal
-            r"|(0[0-7]+)"                                      # octal
-            r"|(([0-9]+\.[0-9]+([eE][+-]?[0-9]+)?)"            # float: 10.5 or 10.5e2
-            r"|(\.[0-9]+([eE][+-]?[0-9]+)?)"                   # float: .5 or .5e2
-            r"|([0-9]+[eE][+-]?[0-9]+))"                       # float: 10e2
-            r"|(0|[1-9][0-9]*)"                                # decimal integer
-            r"|('([^'\\]|\\.)')"                               # char constant
+            r"(0[xX][0-9a-fA-F]+)"
+            r"|(0[0-7]+)"
+            r"|(([0-9]+\.[0-9]+([eE][+-]?[0-9]+)?)"
+            r"|(\.[0-9]+([eE][+-]?[0-9]+)?)"
+            r"|([0-9]+[eE][+-]?[0-9]+))"
+            r"|(0|[1-9][0-9]*)"
+            r"|('([^'\\]|\\.)')"
         )
-
-        # Regex for string literals
         lit_regex = r'"([^"\\]|\\.)*"'
 
-        # Join all lexemes into one text block to remove comments correctly
         full_text = "\n".join(str(lexeme) for lexeme in self.lexemes)
-
-        # Remove block comments: /* ... */
         full_text = re.sub(r"/\*.*?\*/", "", full_text, flags=re.DOTALL)
-
-        # Remove line comments: // ...
         full_text = re.sub(r"//.*", "", full_text)
 
-        # Split the cleaned text back into lines
         lines = full_text.splitlines()
 
-        # Token scanning pattern.
-        # The order is important to correctly match longer or more specific tokens first.
         token_pattern = re.compile(
-            rf"{lit_regex}"
-            rf"|{const_regex}"
-            rf"|{op_regex}"
-            rf"|{punt_regex}"
-            rf"|{id_regex}"
-            rf"|#"
-            rf"|[^\s]+"
+            rf"{lit_regex}|{const_regex}|{op_regex}|{punt_regex}|{id_regex}|#|[^\s]+"
         )
 
-        # Process each line independently
-        for line in lines:
+        for line_num, line in enumerate(lines, 1):
             cleared_lexeme = line.strip()
-
-            # Ignore empty lines
             if not cleared_lexeme:
                 continue
 
-            # Special rule:
-            # '#' is valid punctuation only at the beginning of preprocessing lines
             preprocessing_line = cleared_lexeme.lstrip().startswith("#")
-
-            # Find all token candidates in the line
-            matches = list(token_pattern.finditer(cleared_lexeme))
-
-            # Store ranges already consumed by valid matches
+            matches = list(token_pattern.finditer(line))
             consumed_ranges = []
 
             for match in matches:
                 token = match.group()
+                category = "Unknown" # Categoría por defecto
 
-                # Special handling for '#'
+                # 1. Manejo especial para '#'
                 if token == "#":
-                    if preprocessing_line:
-                        self.token_classification["Punctuation"].add("#")
-                    else:
-                        self.token_classification["Unknown"].add("#")
-
+                    category = "Punctuation" if preprocessing_line else "Unknown"
+                    self.token_classification[category].add(token)
                     self.total_tokens += 1
+                    self.tokens_list.append({
+                        'type': category,
+                        'value': token,
+                        'line': line_num,
+                        'column': match.start() + 1
+                    })
                     consumed_ranges.append((match.start(), match.end()))
                     continue
 
-                # Classify token according to the category it matches
+                # 2. Clasificación del resto de los tokens
                 if re.fullmatch(lit_regex, token):
-                    self.token_classification["Literals"].add(token)
-
+                    category = "Literals"
                 elif re.fullmatch(const_regex, token):
-                    self.token_classification["Constants"].add(token)
-
+                    category = "Constants"
                 elif re.fullmatch(op_regex, token):
-                    self.token_classification["Operators"].add(token)
-
+                    category = "Operators"
                 elif re.fullmatch(punt_regex, token):
-                    self.token_classification["Punctuation"].add(token)
-
+                    category = "Punctuation"
                 elif re.fullmatch(id_regex, token):
-                    # If the token matches the identifier pattern,
-                    # it may still be a reserved keyword
-                    if token in self.keywords:
-                        self.token_classification["Keywords"].add(token)
-                    else:
-                        self.token_classification["Identifiers"].add(token)
-
+                    category = "Keywords" if token in self.keywords else "Identifiers"
                 else:
-                    # If no valid category matches, classify as unknown
-                    self.token_classification["Unknown"].add(token)
+                    category = "Unknown"
 
-                # Update counters and mark the consumed range
+                # Guardado para la GUI (Sets) y Lista Secuencial (Parser/Output)
+                self.token_classification[category].add(token)
+                self.tokens_list.append({
+                    'type': category,
+                    'value': token,
+                    'line': line_num,
+                    'column': match.start() + 1
+                })
                 self.total_tokens += 1
                 consumed_ranges.append((match.start(), match.end()))
 
-            # Detect any remaining fragments not consumed by valid tokens
-            unknown_chars = [True] * len(cleared_lexeme)
-
-            # Mark consumed positions as False
+            # 3. Detección de fragmentos desconocidos (Buffer)
+            unknown_chars = [True] * len(line)
             for start, end in consumed_ranges:
                 for i in range(start, end):
                     unknown_chars[i] = False
 
-            # Build unknown fragments from leftover characters
             buffer = []
-            for i, ch in enumerate(cleared_lexeme):
+            for i, ch in enumerate(line):
                 if unknown_chars[i] and not ch.isspace():
                     buffer.append(ch)
                 elif buffer:
                     unknown_token = "".join(buffer).strip()
                     if unknown_token:
                         self.token_classification["Unknown"].add(unknown_token)
+                        self.tokens_list.append({
+                            'type': 'Unknown',
+                            'value': unknown_token,
+                            'line': line_num,
+                            'column': line.find(unknown_token) + 1
+                        })
                         self.total_tokens += 1
                     buffer = []
 
-            # If the line ends while the buffer still has unknown characters,
-            # store them as an Unknown token
             if buffer:
                 unknown_token = "".join(buffer).strip()
                 if unknown_token:
                     self.token_classification["Unknown"].add(unknown_token)
+                    self.tokens_list.append({
+                        'type': 'Unknown',
+                        'value': unknown_token,
+                        'line': line_num,
+                        'column': line.find(unknown_token) + 1
+                    })
                     self.total_tokens += 1
 
-        return self.token_classification
+        return self.tokens_list
 
     def get_total_tokens(self):
         """

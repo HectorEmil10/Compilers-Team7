@@ -67,46 +67,54 @@ Compilers-Team7/
         └── fi/
             └── compilers/
                 └── g5/
-                    │
-                    ├── doc/
-                    │   ├── 07-Compilers-Lexer.pdf
-                    │   │
-                    │   ├── automatas/
-                    │   │   ├── Constants_Automata.png
-                    │   │   ├── Identifiers_Automata.png
-                    │   │   ├── Keywords_automata.png
-                    │   │   ├── Literals_Automata.png
-                    │   │   ├── Operators_Automata.png
-                    │   │   └── Punctuation_Automata.png
-                    │   │
-                    │   ├── regular_expressions/
-                    │   │   ├── Constants_regular.png
-                    │   │   ├── Identifiers_regular.png
-                    │   │   ├── Keywords_regular.png
-                    │   │   ├── Literals_regular.png
-                    │   │   ├── Operator_regular.png
-                    │   │   └── Punctuation_regular.png
-                    │   │
-                    │   └── test/
-                    │       ├── .gitkeep
-                    │       ├── Test1 Token Recognition and Whitespace Handling.png
-                    │       ├── Test1 Token Recognition and Whitespace Handling.txt
-                    │       ├── Test2 Comment Processing.png
-                    │       ├── Test2 Comment Processing.txt
-                    │       ├── Test3 Unknown Token Detection.png
-                    │       ├── Test3 Unknown Token Detection.txt
-                    │       ├── Test4 Lexical Error.png
-                    │       └── Test4 Lexical Error.txt
-                    │
-                    └── src/
-                        └── main/
-                            ├── gui.py
-                            ├── lexer.py
-                            ├── main.py
-                            │
-                            └── resources/
-                                ├── keywords.txt
-                                └── tokens.txt
+                    └── 07/
+                        ├── README.md
+                        │
+                        ├── doc/
+                        │   ├── 07-Compilers-Lexer.pdf
+                        │   │
+                        │   ├── automatas/
+                        │   │   ├── Constants_Automata.png
+                        │   │   ├── Identifiers_Automata.png
+                        │   │   ├── Keywords_automata.png
+                        │   │   ├── Literals_Automata.png
+                        │   │   ├── Operators_Automata.png
+                        │   │   └── Punctuation_Automata.png
+                        │   │
+                        │   ├── regular_expressions/
+                        │   │   ├── Constants_regular.png
+                        │   │   ├── Identifiers_regular.png
+                        │   │   ├── Keywords_regular.png
+                        │   │   ├── Literals_regular.png
+                        │   │   ├── Operator_regular.png
+                        │   │   └── Punctuation_regular.png
+                        │   │
+                        │   └── test/
+                        │       ├── .gitkeep
+                        │       ├── Test1 Token Recognition and Whitespace Handling.png
+                        │       ├── Test1 Token Recognition and Whitespace Handling.txt
+                        │       ├── Test2 Comment Processing.png
+                        │       ├── Test2 Comment Processing.txt
+                        │       ├── Test3 Unknown Token Detection.png
+                        │       ├── Test3 Unknown Token Detection.txt
+                        │       ├── Test4 Lexical Error.png
+                        │       └── Test4 Lexical Error.txt
+                        │
+                        └── src/
+                            └── main/
+                                ├── ast_visualizer.py
+                                ├── gui.py
+                                ├── main.py
+                                │
+                                ├── lexer/
+                                │   └── lexer.py
+                                │
+                                ├── parser/
+                                │   └── parser_sdt.py
+                                │
+                                └── resources/
+                                    ├── keywords.txt
+                                    └── tokens.txt
 ```
 
 ---

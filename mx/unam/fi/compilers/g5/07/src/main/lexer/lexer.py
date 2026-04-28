@@ -98,11 +98,9 @@ class Lexer:
     def _load_keywords(self):
         """
         Load reserved keywords from 'keywords.txt'.
-
         Each non-empty line from the file is stored in the keyword set.
         """
         keywords_path = self.resource_dir / "keywords.txt"
-
         if keywords_path.exists():
             with open(keywords_path, "r", encoding="utf-8") as file:
                 for line in file:
@@ -113,12 +111,10 @@ class Lexer:
     def _load_tokens(self):
         """
         Load token category names from 'tokens.txt'.
-
         If the file contains token categories not already initialized,
         they are added to the classification dictionary.
         """
         tokens_path = self.resource_dir / "tokens.txt"
-
         if tokens_path.exists():
             with open(tokens_path, "r", encoding="utf-8") as file:
                 for line in file:
@@ -126,28 +122,9 @@ class Lexer:
                     if token_name and token_name not in self.token_classification:
                         self.token_classification[token_name] = set()
 
-    def create_keyword_regex(self):
-        """
-        Build a regular expression that matches any loaded keyword.
-
-        Returns
-        -------
-        str
-            A regex representing all keywords as complete words.
-            If the keyword set is empty, a regex that matches nothing is returned.
-        """
-        if not self.keywords:
-            return r"$^"  # Regex that matches nothing
-
-        regex_creator = "|".join(sorted(self.keywords))
-        return rf"\b({regex_creator})\b"
-
     def reset(self):
         """
-        Reset the lexical analyzer state.
-
-        This method clears all token category sets and resets
-        the total token counter before a new analysis.
+        Reset the lexical analyzer state before a new analysis.
         """
         for category in self.token_classification:
             self.token_classification[category].clear()
@@ -158,66 +135,40 @@ class Lexer:
         """
         Perform lexical analysis over the stored lexemes.
         """
-        # Reset any previous analysis results
         self.reset()
 
-        keyword_regex = self.create_keyword_regex()
+        # Regex definitions
         id_regex = r"[a-zA-Z_][a-zA-Z0-9_]*"
-        op_regex = (
-            r">>=|<<=|\+=|-=|\*=|/=|%=|==|!=|>=|<=|&&|\|\||\+\+|--|<<|>>|"
-            r"&=|\|=|\^=|=|>|<|!|~|\+|-|\*|/|%|&|\||\^|\?|:"
-        )
+        op_regex = r">>=|<<=|\+=|-=|\*=|/=|%=|==|!=|>=|<=|&&|\|\||\+\+|--|<<|>>|&=|\|=|\^=|=|>|<|!|~|\+|-|\*|/|%|&|\||\^|\?|:"
         punt_regex = r"\.\.\.|[()\[\]{};,.:]"
-        const_regex = (
-            r"(0[xX][0-9a-fA-F]+)"
-            r"|(0[0-7]+)"
-            r"|(([0-9]+\.[0-9]+([eE][+-]?[0-9]+)?)"
-            r"|(\.[0-9]+([eE][+-]?[0-9]+)?)"
-            r"|([0-9]+[eE][+-]?[0-9]+))"
-            r"|(0|[1-9][0-9]*)"
-            r"|('([^'\\]|\\.)')"
-        )
+        const_regex = r"(0[xX][0-9a-fA-F]+)|(0[0-7]+)|(([0-9]+\.[0-9]+([eE][+-]?[0-9]+)?)|(\.[0-9]+([eE][+-]?[0-9]+)?)|([0-9]+[eE][+-]?[0-9]+))|(0|[1-9][0-9]*)|('([^'\\]|\\.)')"
         lit_regex = r'"([^"\\]|\\.)*"'
 
+        # Pre-process comments while preserving line count
         full_text = "\n".join(str(lexeme) for lexeme in self.lexemes)
-        full_text = re.sub(r"/\*.*?\*/", "", full_text, flags=re.DOTALL)
+        
+        # Improvement: Replace multi-line comments with equivalent number of newlines
+        full_text = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group().count("\n"), full_text, flags=re.DOTALL)
         full_text = re.sub(r"//.*", "", full_text)
 
         lines = full_text.splitlines()
-
-        token_pattern = re.compile(
-            rf"{lit_regex}|{const_regex}|{op_regex}|{punt_regex}|{id_regex}|#|[^\s]+"
-        )
+        token_pattern = re.compile(rf"{lit_regex}|{const_regex}|{op_regex}|{punt_regex}|{id_regex}|#|[^\s]+")
 
         for line_num, line in enumerate(lines, 1):
-            cleared_lexeme = line.strip()
-            if not cleared_lexeme:
+            if not line.strip():
                 continue
 
-            preprocessing_line = cleared_lexeme.lstrip().startswith("#")
+            preprocessing_line = line.lstrip().startswith("#")
             matches = list(token_pattern.finditer(line))
             consumed_ranges = []
 
             for match in matches:
                 token = match.group()
-                category = "Unknown" # Categoría por defecto
+                category = "Unknown"
 
-                # 1. Manejo especial para '#'
                 if token == "#":
                     category = "Punctuation" if preprocessing_line else "Unknown"
-                    self.token_classification[category].add(token)
-                    self.total_tokens += 1
-                    self.tokens_list.append({
-                        'type': category,
-                        'value': token,
-                        'line': line_num,
-                        'column': match.start() + 1
-                    })
-                    consumed_ranges.append((match.start(), match.end()))
-                    continue
-
-                # 2. Clasificación del resto de los tokens
-                if re.fullmatch(lit_regex, token):
+                elif re.fullmatch(lit_regex, token):
                     category = "Literals"
                 elif re.fullmatch(const_regex, token):
                     category = "Constants"
@@ -227,10 +178,8 @@ class Lexer:
                     category = "Punctuation"
                 elif re.fullmatch(id_regex, token):
                     category = "Keywords" if token in self.keywords else "Identifiers"
-                else:
-                    category = "Unknown"
-
-                # Guardado para la GUI (Sets) y Lista Secuencial (Parser/Output)
+                
+                # Store token data
                 self.token_classification[category].add(token)
                 self.tokens_list.append({
                     'type': category,
@@ -241,50 +190,38 @@ class Lexer:
                 self.total_tokens += 1
                 consumed_ranges.append((match.start(), match.end()))
 
-            # 3. Detección de fragmentos desconocidos (Buffer)
-            unknown_chars = [True] * len(line)
-            for start, end in consumed_ranges:
-                for i in range(start, end):
-                    unknown_chars[i] = False
-
-            buffer = []
-            for i, ch in enumerate(line):
-                if unknown_chars[i] and not ch.isspace():
-                    buffer.append(ch)
-                elif buffer:
-                    unknown_token = "".join(buffer).strip()
-                    if unknown_token:
-                        self.token_classification["Unknown"].add(unknown_token)
-                        self.tokens_list.append({
-                            'type': 'Unknown',
-                            'value': unknown_token,
-                            'line': line_num,
-                            'column': line.find(unknown_token) + 1
-                        })
-                        self.total_tokens += 1
-                    buffer = []
-
-            if buffer:
-                unknown_token = "".join(buffer).strip()
-                if unknown_token:
-                    self.token_classification["Unknown"].add(unknown_token)
-                    self.tokens_list.append({
-                        'type': 'Unknown',
-                        'value': unknown_token,
-                        'line': line_num,
-                        'column': line.find(unknown_token) + 1
-                    })
-                    self.total_tokens += 1
+            # Process remaining unknown characters in the line
+            self._handle_unknowns(line, consumed_ranges, line_num)
 
         return self.tokens_list
 
-    def get_total_tokens(self):
-        """
-        Return the total number of recognized tokens.
+    def _handle_unknowns(self, line, consumed_ranges, line_num):
+        """ Internal helper to capture sequences not matched by any regex. """
+        mask = [True] * len(line)
+        for start, end in consumed_ranges:
+            for i in range(start, end):
+                mask[i] = False
 
-        Returns
-        -------
-        int
-            The total count of tokens recognized during lexical analysis.
-        """
+        buffer = []
+        for i, (is_unknown, char) in enumerate(zip(mask, line)):
+            if is_unknown and not char.isspace():
+                buffer.append(char)
+            elif buffer:
+                self._add_unknown_to_list("".join(buffer), line_num, line)
+                buffer = []
+        if buffer:
+            self._add_unknown_to_list("".join(buffer), line_num, line)
+
+    def _add_unknown_to_list(self, value, line_num, line):
+        self.token_classification["Unknown"].add(value)
+        self.tokens_list.append({
+            'type': 'Unknown',
+            'value': value,
+            'line': line_num,
+            'column': line.find(value) + 1
+        })
+        self.total_tokens += 1
+
+    def get_total_tokens(self):
+        """ Return the total count of recognized tokens. """
         return self.total_tokens
